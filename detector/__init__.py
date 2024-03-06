@@ -1,0 +1,1 @@
+from .detector import DICT_DET, INB72, IZEN, DetectorEnsemble, Bench, Telescope, VetoPlane, str2detector

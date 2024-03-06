@@ -1,0 +1,2 @@
+This package was written for CEA muography projects IZEN and INB72 of the tomomu team at DRF/IRFU/DEDIP/DEPHYS laboratory.
+The package contains both real muon data and GEANT4 simulation data processing and analysis tools. 

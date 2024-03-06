@@ -1,0 +1,8 @@
+.venv
+.vscode
+build/
+dist/
+out/
+pytomomu.egg-info/
+test/
+slurm/

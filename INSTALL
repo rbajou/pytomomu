@@ -1,0 +1,24 @@
+To install the package, make sure you have Python v3.7 or higher installed.  
+
+1.In the current package directory, first create a virtual environment, running: 
+    $python3 -m venv .venv     #N.B ‘.venv’ is the commonly used hidden directory name
+
+2.Activate the virtual environment:  
+    $source .venv/bin/activate
+
+N.B To exit the virtual environment, simply do:  
+    $deactivate  
+
+3.Then, to install the package with its requirements and given survey config (default is 'inb72') do:    
+    $python3 -m pip install .
+or
+    $python3 setup.py install (-- --survey <survey_name>)  # extra '--' is not a typo
+
+For each source package modification run step 3 again.
+
+Additional survey can be added to 'survey.yaml'; and if another detector needs to be defined, edit the 'detector/detector.py' file.
+
+Then, when switching to another survey:
+    $python3 config/config.py <survey_name>
+or run step 3 with another <survey_name>. 
+    
