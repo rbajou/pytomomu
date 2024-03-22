@@ -1,0 +1,5 @@
+include AUTHOR
+include INSTALL
+include README.md
+recursive-include */*.yaml
+recursive-include */*.json

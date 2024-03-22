@@ -11,7 +11,7 @@ then
     mkdir $outdir 
 fi 
 unix_timestamp=$(stat -c "%Y" ${indir}/${prefix}_run${irun}_analyse.root)
-echo $unix_timestamp >  ${outdir}/timestamp0.txt
+echo $unix_timestamp >  ${outdir}/last_timestamp.txt
 # date0=$(date -d "@$timestamp" "+%Y-%m-%d %H:%M:%S")
 date0=$(date -d "@${unix_timestamp}" "+%Y-%m-%d %H:%M:%S")
 echo "Start run: ${date0}"

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
 from setuptools import setup, find_packages
@@ -9,38 +9,35 @@ import subprocess
 import json
 
 
-survey = "inb72"
-opt = "--survey"
-if opt in sys.argv:
-    # Find the index of the custom option
-    index = sys.argv.index(opt)
-    # Check if the option has a value next to it
-    if index + 1 < len(sys.argv):
-        survey = sys.argv[index + 1]
-        ###Load default script arguments stored in .yaml file
-        # Remove the option and its value from sys.argv
-        sys.argv.pop(index) #one time for '--opt'
-        sys.argv.pop(index) #two time for 'value'
-
-print(sys.argv)
+# survey = "inb72"
+# opt = "--survey"
+# if opt in sys.argv:
+#     # Find the index of the custom option
+#     index = sys.argv.index(opt)
+#     # Check if the option has a value next to it
+#     if index + 1 < len(sys.argv):
+#         survey = sys.argv[index + 1]
+#         ###Load default script arguments stored in .yaml file
+#         # Remove the option and its value from sys.argv
+#         sys.argv.pop(index) #first time for '--opt'
+#         sys.argv.pop(index) #second time for 'value'
 
 REQUIREMENTS = [
-    'pandas',
-    'numpy',
-    'scipy',
+    # 'bs4', #to fetch online files
+    # 'cx_Freeze', #to make executable files
+    'iminuit', #used for advanced fit in 'utils/functions.py'
     'matplotlib',
-    'scikit-learn',
-    'scikit-image',
+    'numpy',
+    'palettable', # for nice color maps
+    'pandas',
+    'pillow', #for animation
     'pyjson',
     'pylandau',  #used in 'utils/functions.py'
-    'iminuit', #used in 'utils/functions.py'
-    'pyyaml',
-    'palettable', 
-    'requests', 
-    'bs4', 
-    'cx_Freeze', #make executable files
-    'mat73', #read v7.3 mat files
-    'pillow', #for animation
+    'pyyaml', #for .yaml config files
+    'scikit-learn', #ml library
+    'scikit-image', #for fit with ransac  
+    'scipy',
+    'seaborn',#for nice plot templates
     'uproot', #to read .root file
 ]
 
@@ -48,29 +45,31 @@ REQUIREMENTS = [
 setup(
     name='pytomomu',
     version='0.1.0',
-    description="",
+    description="This package is for processing and analyzing muography data recorded in Micromegas detectors developed at CEA-IRFU, Saclay, France.",
     author="Raphaël Bajou",
-    author_email='r.bajou2@gmail.com',
+    author_email='raphael.bajou@cea.fr',
     url='https://github.com/rbajou/pytomomu.git',
     packages=find_packages(),
     package_dir={
         'pytomomu': [
-                     'analyse', 'cluster', 'config', 'detector', 'event', 'real', 'simu', 'utils', 'tracking',
+                     'analyse', 'cluster', 'detector', 'event', 'forwardsolver', 'real', 'rootfile', 'simu', 'survey', 'utils', 'tracking',
                      ]
     },  
-    package_data={
-          'files': [],
-      },
     include_package_data=True,
+    package_data={
+          #'simu':  ['*.json', '*.yaml'],
+          'survey':  [ '*.yaml'],
+    },
     install_requires=REQUIREMENTS,
-    keywords='Muography Nuclear Package',
+    keywords='Muography, Micromegas, Tracking',
     classifiers=[
         'Programming Language :: Python :: 3.10',
     ], 
 )
-basename = "current_survey"
-print(f"\n{basename.upper()}: {survey}")
-#stdout = subprocess.run(["python3", "config/config.py", f"{survey}" ], stdout=subprocess.PIPE).stdout.decode('utf-8')
-#print(stdout)
-with open(f"{basename}.json", 'w') as f:
-    json.dump({basename: survey}, f, indent=4)
+
+# basename = "current_survey"
+# path = Path(__file__).parent / "survey" / basename
+# print(f"\n{basename.upper()}: {survey}")
+# #subprocess.run(["python3", "config/config.py", f"{survey}" ], stdout=subprocess.PIPE).stdout.decode('utf-8')
+# with open(f"{path}.json", 'w') as f:
+#     json.dump({basename: survey}, f, indent=4)

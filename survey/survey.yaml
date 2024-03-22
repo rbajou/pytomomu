@@ -1,0 +1,24 @@
+inb72: #survey name
+  detector: INB72 #defined in 'detector/detector.py' module
+  real:  
+    data_path : /local/home/rb277364/Projects/tomomu/data/inb72/ #parent data path to '1_analyse/'
+    run_prefix: INB72_2024  #prefix 'signal', 'analyse' & 'final' files
+    run_num:  #default list run number(s) (optional)
+    clusvar_prefix: INB72 #prefix cluster variables in *analyse*.root files 
+  simu: 
+    name: INB72_onsite
+    data_path : /local/home/rb277364/Projects/tomomu/sps/tomomu/rbajou/data/INB72_onsite
+
+izen:
+  detector: IZEN 
+  real : 
+    data_path : /local/home/rb277364/Projects/tomomu/data/izen/mid/
+    run_prefix: IZEN_COLIS_MID
+    run_num : 4
+    clusvar_prefix : MGv3
+  simu : 
+    name: G4TomoDet_IZEN
+    data_path : /local/home/rb277364/Projects/tomomu/sps/tomomu/rbajou/data/IZEN
+
+
+

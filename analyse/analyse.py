@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
 from typing import List, Union
@@ -33,7 +33,6 @@ class Analyse(RootFile):
             matches = np.array([ re.search(regex, bn) for bn in self._branch_names])
             self.prefix_mg = matches[matches != None][0].group(0)
       
-
         self.evvar_names = [self._branch_names[i] for i, m in enumerate(matches) if m is None ]
         self.clusvar_names = [self._branch_names[i] for i, m in enumerate(matches) if m is not None ]
         print(f'MicroMegas version : {self.prefix_mg}')
@@ -67,7 +66,7 @@ class Analyse(RootFile):
            
             event = Event()
             event.id = int(self.dict_clus_var['evn'][i])
-            event.time = self.dict_clus_var['evttime'][i] if f'evttime' in self.dict_clus_var.keys() else -999
+            event.time = self.dict_clus_var['evttime'][i]* 8 / 1e9 if f'evttime' in self.dict_clus_var.keys() else -999
             event.cluster_collection = cluster_collection
 
             self.event_collection.__setitem__(event)

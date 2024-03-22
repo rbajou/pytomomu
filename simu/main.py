@@ -19,41 +19,57 @@ import sys
 from scipy.integrate import quad
 import json
 from scipy import stats 
+import argparse
 
 #package module(s)
-from hitmap import HitMap
-from rootfile import SimuOutput
-from detector import INB72
 from analyse import Final
+from detector import Bench, Telescope
 from forwardsolver import FluxModel
+from hitmap import HitMap
+from simuoutput import SimuOutput
+from survey import set_simu_survey
+
 
 t0 = time.time()
 
+parser=argparse.ArgumentParser(
+description='''Main script for processing real data *analysis*.root file, reconstruct muon tracks and save output in *final*.root file.''', epilog='''All is well that ends well.''')
+parser.add_argument('--survey', '-s', default='izen', help="Survey name",  type=str)
+parser.add_argument('--run_datetime', '-d', default=None, help="Run number",  type=str)
+parser.add_argument('--nevt_max', '-n', default=int(1e8), help="Number of events", type=int)
+args=parser.parse_args()
+
+
+CURRENT_SURVEY = set_simu_survey(args.survey)
+
+det = CURRENT_SURVEY.detector 
+if isinstance(det, Telescope): tel = det
+elif isinstance(det, Bench) : tel =  det.telescope[0]
+else : raise TypeError("Unknown detector type")
+
+datestr = str(args.run_datetime) #date run simu YYMMDDhhmm
+print(datestr)
+
 prefix = "G4TomoDet"
 
-# sim = "INB72" 
-sim_name = "INB72_onsite"
+sim_name = CURRENT_SURVEY.name
 main_path = Path(__file__).parents[2] / "sps" / "tomomu" / "rbajou" 
-# main_path = Path(__file__).parents[2]  
-# main_path = Path.home()
 
+data_path = Path(CURRENT_SURVEY.data_path)
+ana_path = data_path / "1_analyse"
+ana_path.mkdir(parents=True, exist_ok=True)
+final_path =  data_path / "2_final" 
+final_path.mkdir(parents=True, exist_ok=True)
+out_path = data_path / "9_out" 
+out_path.mkdir(parents=True, exist_ok=True)
 
-tel = INB72
+fmd = Path(__file__).parent / "metadata_simu.json"
 
-g4_dirname = f"{prefix}_{tel.name}" 
-g4_simpath = main_path / g4_dirname
-# g4_outpath = main_path / f"{prefix}_Data" / sim_name
-g4_outpath = main_path / "data" / sim_name
-# g4_outpath = main_path / "Data" / "G4" / sim_name
-
-
-
-# gen, phi, theta, h, irun= "Guan", 39.6, 46.8, 3350, 'all' 
-fmd = "metadata_simu.json"
 try :
-	assert (Path(__file__).parents[1]/ fmd ).exists()
+	assert fmd.exists()
 except AssertionError:
-	exit(f"{Path(__file__).parent} does not exist")
+	exit(f"{fmd} does not exist")
+
 try :
 	gen, phi, theta, h, irun = [None]*5
 	with open(fmd) as f: 
@@ -62,70 +78,66 @@ try :
 except : 
 	exit(f"Check keys in {fmd}")
 
-# gen, phi, theta, h, irun= "Guan", 0, 46.8, 3350, 'all' 
-# gen, phi, theta, irun= "Guan", 39.6, 45, 'all' #"Guan"
-# gen, theta, irun= "Flat", 0, 'all'
-datestr = sys.argv[1] 
-# datestr = "240207*"
-print(datestr)
 basename = f"{prefix}_{gen}_phi{int(np.around(phi,0))}_theta{int(np.around(theta,0))}_h{h}_run{irun}"
-# basename = f"{prefix}_{gen}_phi{iFnt(np.around(phi,0))}_theta{int(np.around(theta,0))}_run{irun}"
-# basename = f"{prefix}_{gen}_{theta}deg_run{irun}"
-# basename ="G4TomoDet_Flat_0deg_Test10"
-
-# filename = f"{basename}_{datestr}.root"
 filename = f"{basename}*{datestr}*root"
 
-print("Input ", str(g4_outpath / filename))
-file_path =  glob.glob(str(g4_outpath / filename))[0]
-filename = file_path.split("/")[-1]
-dout = main_path / "out" / sim_name
+sout = out_path / basename
+sout.mkdir(parents=True, exist_ok=True)
 
-final_path =  dout / "final"  
-final_path.mkdir(parents=True, exist_ok=True)
+fana = ana_path / filename
+print("Input ", str(fana))
+try: 
+	file_path =  glob.glob(str(fana))[0]
+except IndexError as e: 
+	print(f"No {fana} was found.")
+
+filename = file_path.split("/")[-1]
+
 
 is_test = False
 
 ffinal = final_path / f"{filename.split('.')[0]}_final.root"
 print(f"Read file {file_path}")
-entry_stop = 1e7
+# entry_stop = int(sys.argv[2]) if len(sys.argv) > 2 else 1e7
+entry_stop = args.nevt_max
+
 if is_test : 
 	ffinal = final_path / f"{filename.split('.')[0]}_final_test.root"
-	entry_stop = 1e4
 
 kwargs= {'entry_start':0, 'entry_stop':entry_stop}
-mu = SimuOutput(file=file_path, **kwargs)
+simout = SimuOutput(file=file_path, **kwargs)
 
-nevtot = len(mu.content['Event'])
-if irun == "all" : mu.content['Event'] = np.arange(1, nevtot+1)
+
+nevtot = len(simout.content['Event'])
+if irun == "all" : simout.content['Event'] = np.arange(1, nevtot+1)
 print(f"\nnev : {nevtot}\n")
 
-X, Y, Z = mu.content['HitPosX'], mu.content['HitPosY'], mu.content['HitPosZ']
+X, Y, Z = simout.content['HitPosX'], simout.content['HitPosY'], simout.content['HitPosZ']
 
 rotx, rotz = -theta*np.pi/180, phi*np.pi/180
 mrotx = np.array([[1,0,0], [0,np.cos(rotx),-np.sin(rotx)], [0,np.sin(rotx),np.cos(rotx)]]) 
 mrotz = np.array([[np.cos(rotz),-np.sin(rotz), 0], [np.sin(rotz),np.cos(rotz), 0], [0,0,1]]) 
 
-det = mu.content['HitDet']
-xp, yp, zp = mu.content["GenPos"].T
-xd, yd, zd = mu.content["GenDir"].T
+det = simout.content['HitDet']
+xp, yp, zp = simout.content["GenPos"].T
+xd, yd, zd = simout.content["GenDir"].T
 
 print(f"GenPos : (min, max) = ({np.nanmin(xp):.2f}, {np.nanmin(yp):.2f}, {np.nanmin(zp):.2f}), ({np.nanmax(xp):.2f}, {np.nanmax(yp):.2f}, {np.nanmax(zp):.2f})")
 print(f"GenDir : (min, max) = ({np.nanmin(xd):.2f}, {np.nanmin(yd):.2f}, {np.nanmin(zd):.2f}), ({np.nanmax(xd):.2f}, {np.nanmax(yd):.2f}, {np.nanmax(zd):.2f})")
 
-
 md = SimuOutput(file=file_path, treename="MetaData")
-disk_radius =  md.content["Radius"][0]
+disk_radius =  md.content["Radius"][0] #mm
 phi_gen_min, phi_gen_max =  md.content["PhiMin"][0], md.content["PhiMax"][0] #not correctly set in G4TomoDet
 theta_gen_min, theta_gen_max =  md.content["ThetaMin"][0], md.content["ThetaMax"][0]
 zgenplane =  md.content["GenPlaneZ"][0]
+
 
 #position on emission disk
 
 print("\n MetaData Generation: ")
 print(f"disk_radius = {disk_radius} mm")
-print(f"phi_min, phi_max = {phi_gen_min*180/np.pi:.1f}, {phi_gen_max*180/np.pi:.1f} °")
-print(f"theta_min, theta_max = {theta_gen_min*180/np.pi:.1f}, {theta_gen_max*180/np.pi:.1f} °")
+print(f"phi_min, phi_max = {phi_gen_min*180/np.pi:.1f}, {phi_gen_max*180/np.pi:.1f} deg")
+print(f"theta_min, theta_max = {theta_gen_min*180/np.pi:.1f}, {theta_gen_max*180/np.pi:.1f} deg")
 print(f"zgenplane = {zgenplane:.0f} mm")
 
 fm = FluxModel()
@@ -138,7 +150,7 @@ m = np.abs(np.round(phi_prim*180/np.pi, 1)) != 90.0
 # dphi = np.max(phi_prim[m]) - np.min(phi_prim[m]) #2*np.pi if vertical telescope 
 dphi = np.pi/2
 dtheta = theta_gen_max - theta_gen_min
-print(f"dphi, dtheta = {dphi*180/np.pi}, {dtheta*180/np.pi}°")
+print(f"dphi, dtheta = {dphi*180/np.pi}, {dtheta*180/np.pi} deg")
 s_gen = np.pi * r**2 #disk surface
 rate =  dphi * s_gen * abs(quad(integrand, np.cos(theta_gen_min), np.cos(theta_gen_max) )[0]) 
 texp = nevtot / rate
@@ -147,9 +159,9 @@ print(f"Exposure time = {texp/(3600*24):.2f} d")
 label = f"{prefix}_{tel.name}_{gen}_phi{phi}deg_theta{theta}deg_h{h}mm \n(exposure {texp/(3600*24):.2f} days)"
 kwargs = {'label':label}
 
-print(f"phi, theta in [{np.min(phi_prim[m])*180/np.pi:.2f}°, {np.max(phi_prim[m])*180/np.pi:.2f}]°, [{np.min(theta_prim)*180/np.pi:.2f}, {np.max(theta_prim)*180/np.pi:.2f}]°")
-print(f"phi_mean, phi_std = {np.mean(phi_prim)*180/np.pi:.2f}, {np.std(phi_prim)*180/np.pi:.2f}°")
-print(f"theta_mean, theta_std = {np.mean(theta_prim)*180/np.pi:.2f}, {np.std(theta_prim)*180/np.pi:.2f}°")
+print(f"phi, theta in [{np.min(phi_prim[m])*180/np.pi:.2f} deg, {np.max(phi_prim[m])*180/np.pi:.2f}] deg, [{np.min(theta_prim)*180/np.pi:.2f}, {np.max(theta_prim)*180/np.pi:.2f}] deg")
+print(f"phi_mean, phi_std = {np.mean(phi_prim)*180/np.pi:.2f}, {np.std(phi_prim)*180/np.pi:.2f} deg")
+print(f"theta_mean, theta_std = {np.mean(theta_prim)*180/np.pi:.2f}, {np.std(theta_prim)*180/np.pi:.2f} deg")
 
 
 theta_off = 0. #-np.pi/4
@@ -178,7 +190,7 @@ dy_tel_storwell = 2165 #mm
 spacing_well = 900 #mm
 radius_well_top = 305 #mm
 radius_well_bot = 200 #mm
-kwargs = {"fill": False, "color": "red", "linestyle":"dashed"}
+kwargs = {"fill":False, "color":"red", "linestyle":"dashed"}
 fontdict = {"size":"x-large", "color": "red", "weight":"bold", "ha":"center"}
 telwell1 = plt.Circle((0, 0), radius_well_top, **kwargs)
 ax.text(0., 0.,s="63", fontdict=fontdict)
@@ -199,19 +211,19 @@ divider = make_axes_locatable(ax)
 cax = divider.append_axes("right", size="5%", pad=0.05)
 cbar = fig.colorbar(im, cax=cax, extend='max')
 foutname = f"xy_gen_{basename}.png"
-fout = dout / foutname
+fout = sout / foutname
 fig.savefig(fout, dpi=300)
 print(f"Save figure {fout}")
 Nmu0 = h2d
 
 
-mu.fill_event_collection(ndet=len(tel.detectors), nh=8, mrotx=mrotx, mrotz=mrotz)
-ec = mu.event_collection
+simout.fill_event_collection(ndet=len(tel.detectors), nh=8, mrotx=mrotx, mrotz=mrotz)
+ec = simout.event_collection
 ec.detector_ensemble = tel
 
 hitmap = HitMap(event_collection=ec)
 foutname = f"mosaic_hit_xy_pos_{basename}.png"
-fout = dout / foutname
+fout = sout / foutname
 hit_pos = np.array([ev.xyz for i, (_, ev) in enumerate(ec.events.items())])
 # print(np.min(hit_pos[:,0]), np.max(hit_pos[:,0]), np.min(hit_pos[:,1]), np.max(hit_pos[:,1]))
 ##hit_pos shape : (nev, nlay, nclus)
@@ -249,8 +261,8 @@ if not ffinal.exists():
 	print(f"Save file {ffinal}")
 
 '''
-dout = main_path / "out" / sim 
-(dout/"evd").mkdir(parents=True, exist_ok=True)
+sout = main_path / "out" / sim 
+(sout/"evd").mkdir(parents=True, exist_ok=True)
 for i in np.arange(1, 11):
 	trk = ec.tracks[i]
 	id_evt = trk.id
@@ -282,7 +294,7 @@ for i in np.arange(1, 11):
 	ax.plot(xyz_t[:,0],xyz_t[:,1], xyz_t[:,-1],
 			c="blue", linewidth=0.75)
 
-	fout = dout/"evd"/f"evt{id_evt}.png"
+	fout = sout/"evd"/f"evt{id_evt}.png"
 	fig.savefig(fout, dpi=300)
 	print(f"Save evd#{id_evt} in {fout}")
 '''
@@ -312,7 +324,7 @@ ax.set_xlabel('X0 [mm]')
 ax.set_ylabel('Y0 [mm]')
 # ax.invert_yaxis()
 foutname = f"xy0_{ec.detector_ensemble.name}_{basename}.png"
-fout = dout / foutname
+fout = sout / foutname
 fig.savefig(fout, dpi=300)
 print(f'Save figure {fout}')
 plt.close()
@@ -337,7 +349,7 @@ xlim, ylim = [-1., 1.], [-1.5, 1.5]
 ax.set_xlim(xlim)
 ax.set_ylim(ylim)
 
-##region GAP @ top of storage well 
+##INB72: region GAP @ top of storage well 
 hgap = 530 #mm
 htel = h
 dist = dy_tel_storwell
@@ -345,21 +357,23 @@ tthetax_gap_min, tthetax_gap_max = -radius_well_bot/dist, radius_well_bot/dist
 tthetay_gap_min, tthetay_gap_max =  -(htel-hgap)/dist, -htel/dist
 kwargs = {"linewidth": 1., "linestyle":"dashed", "color":"red"}
 fontdict = {'family': 'serif', 'color':  'red', 'weight': 'normal','size': 'large', 'ha':'center',}
-ax.text((tthetax_gap_max+tthetax_gap_min)/2,(tthetay_gap_max+tthetay_gap_min)/2, s="gap",  fontdict=fontdict) #default is data coordinates
+# ax.text((tthetax_gap_max+tthetax_gap_min)/2,(tthetay_gap_max+tthetay_gap_min)/2, s="gap",  fontdict=fontdict) #default is data coordinates
 
 nwell, nbar = 3, 10
 hbarrel, hpot = 617, 285 #mm
 radius_barrel, radius_pot = 180, 110 #mm
 h0 = (htel-hgap)
-# r = plt.Rectangle(xy=(0, 0), width=0.1, height=0.25, color="red", visible=True)
-# ax.add_patch(r)
+s = 53
 for l in np.arange(0, nwell): #storage well	
 	hb = h0
 	hp = hb-(hbarrel-hpot)
 	dist1 = np.sqrt(dist**2 + (l*spacing_well)**2) 
 	tthetax_well_min, tthetax_well_max = -(radius_well_bot+l*spacing_well)/dist1, (radius_well_bot-l*spacing_well)/dist1 
+	ax.text((tthetax_well_min+tthetax_well_max)/2,(tthetay_gap_max+tthetay_gap_min)/2, s=s-l,  fontdict=fontdict) #default is data coordinates
 	ax.axvline(tthetax_well_min, **kwargs)
 	ax.axvline(tthetax_well_max, **kwargs)
+	
+	##Draw barrels
 	for k in np.arange(0, nbar): #barrels
 		tthetax_bar_min, tthetax_bar_max = -(radius_barrel+l*spacing_well)/dist1, (radius_barrel-l*spacing_well)/dist1
 		tthetay_bar_min, tthetay_bar_max =  -(hb-(k)*hbarrel)/dist1, -(hb-(k+1)*hbarrel)/dist1
@@ -368,32 +382,31 @@ for l in np.arange(0, nwell): #storage well
 
 		xr, yr = tthetax_bar_min, tthetay_bar_min
 		w, h = abs(tthetax_bar_max-tthetax_bar_min), abs(tthetay_bar_max-tthetay_bar_min)
-		# print(k, tthetax_bar_min, tthetax_bar_max, tthetay_bar_min, tthetay_bar_max)
-		if (ylim[0] <tthetay_bar_max) & (tthetay_bar_max < ylim[1]): 
-			rb = plt.Rectangle(xy=(xr,yr), width=w, height=h,  facecolor="blue", edgecolor='darkgrey', linewidth=2., alpha=0.1)
-			ax.add_patch(rb)
-			xt, yt = (tthetax_bar_min+tthetax_bar_max)/2, (tthetay_bar_min+tthetay_bar_max)/2
-			ax.text(xt, yt, s=f"B{k+1}", fontdict=fontdict)
-	
+
+		# if (ylim[0] <tthetay_bar_max) & (tthetay_bar_max < ylim[1]): 
+		rb = plt.Rectangle(xy=(xr,yr), width=w, height=h,  facecolor="none", edgecolor='darkgrey', linewidth=2., alpha=0.1)
+		ax.add_patch(rb)
+		xt, yt = (tthetax_bar_min+tthetax_bar_max)/2, (tthetay_bar_min+tthetay_bar_max)/2
+		# ax.text(xt, yt, s=f"B{k+1}", fontdict=fontdict)
+
 		# if k < 2:
-			xr, yr = tthetax_pot_min, tthetay_pot_min
-			w, h = abs(tthetax_pot_max-tthetax_pot_min), abs(tthetay_pot_max-tthetay_pot_min)
-			# print(k, tthetax_bar_min, tthetax_bar_max, tthetay_bar_min, tthetay_bar_max)
-			if (ylim[0] <tthetay_pot_max) & (tthetay_pot_max < ylim[1]): 
-				rp = plt.Rectangle(xy=(xr,yr), width=w, height=h,  facecolor="red", edgecolor='darkred', linewidth=1., alpha=0.1, hatch='//')
-				ax.add_patch(rp)
+		xr, yr = tthetax_pot_min, tthetay_pot_min
+		w, h = abs(tthetax_pot_max-tthetax_pot_min), abs(tthetay_pot_max-tthetay_pot_min)
+		# if (ylim[0] <tthetay_pot_max) & (tthetay_pot_max < ylim[1]): 
+		rp = plt.Rectangle(xy=(xr,yr), width=w, height=h,  facecolor="none", edgecolor='darkred', linewidth=1., alpha=0.1)#, hatch='//')
+		ax.add_patch(rp)
+	
 
 
 ax.invert_yaxis()
 
 
 foutname = f"thetaxy_{ec.detector_ensemble.name}_{basename}.png"
-fout = dout / foutname
+fout = sout / foutname
 fig.savefig(fout, dpi=300)
 print(f'Save figure {fout}')
 plt.close()
 Nmuf = h2d
-
 
 if sim_name=='INB72' :
 	acc_geo = dphi * s_gen * Nmuf/Nmu0  #cm2.sr
@@ -414,7 +427,7 @@ if sim_name=='INB72' :
 	ax.set_xlim(-1,1)
 	ax.set_ylim(-1,1)
 	foutname = f"acceptance_geo_{ec.detector_ensemble.name}_{basename}.png"
-	fout = dout / foutname
+	fout = sout / foutname
 	fig.savefig(fout, dpi=300)
 	print(f'Save figure {fout}')
 	plt.close()
@@ -435,7 +448,9 @@ if sim_name=='INB72' :
 	ax.set_ylim(-1,1)
 	ax.invert_yaxis()
 	foutname = f"acceptance_geo_3D_{ec.detector_ensemble.name}_{basename}.png"
-	fout = dout / foutname
+	fout = sout / foutname
 	fig.savefig(fout, dpi=300)
 	print(f'Save figure {fout}')
 	plt.close()
+
+print(f"End -- {(time.time()-t0)/60:.2f} min")

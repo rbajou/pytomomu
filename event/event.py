@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
 from dataclasses import dataclass
@@ -28,9 +28,6 @@ class Event:
     @time.setter
     def time(self, value:float):
         self._time = value
-
-    def __dir__(sefl):
-        return ['id', 'time']
 
     @property 
     def strip_collection(self):
@@ -127,15 +124,14 @@ class EventCollection:
         self._tracks = value
 
     def get_xyz(self, mask:np.ndarray=None):
-        
+        '''
+        Conversion from cluster position (in strips) to detector coordinates
+        '''
         det_xyz = np.array([d.position for d in self._detectors])
         det_pitch = np.array([d.strip_layers[0].pitch for d in self._detectors])
         det_side = np.array([d.side for d in self._detectors])
         xyz_off = np.zeros((len(self._detectors), 3))
-        print(self.detector_ensemble)
-    
-        xyz_off = np.array([-det_side[i]/2 + det_xyz[i]  if d.parent.name=="tel" else -det_xyz[i] for i, d in enumerate(self._detectors) ]) #
-        print(f"xyz_off = {xyz_off}")
+        xyz_off = np.array([-det_side[i]/2 + det_xyz[i]  for i, d in enumerate(self._detectors) ]) 
 
         lay_index = [lay.index for det in self._detectors for lay in det.strip_layers]
         nev = len(self.events)
@@ -148,20 +144,15 @@ class EventCollection:
         det_axis = 1
         dim_array = np.ones((1,zmm.ndim),int).ravel()
         dim_array[det_axis] = -1
-        
-        # xc, yc = np.zeros((nev, npan, nclus)), np.zeros((nev, npan, nclus))
-        # xmm, ymm, zmm = np.zeros((nev, npan, nclus)), np.zeros((nev, npan, nclus)) #add
+    
         ix_even, ix_odd = range(0, nlay, 2), range(1, nlay, 2)
        
         # m = (mask[:, ix_even] == True) & (mask[:, ix_odd] == True)
       
         for i, (id, ev) in enumerate(self.events.items()):
-            # if i > 10 : break
             cc = ev.cluster_collection
             xc, yc = cc.position[ix_even], cc.position[ix_odd] 
             xy = np.stack((xc, yc), axis=-1)
-            # xmm[i] = (xc.T * det_pitch - det_side/2 + det_xyz[:,0]).T 
-            # ymm[i] = (yc.T * det_pitch - det_side/2 + det_xyz[:,1]).T
             xmm[i] = (xc.T * det_pitch + xyz_off[:,0]).T 
             ymm[i] = (yc.T * det_pitch + xyz_off[:,1]).T
             zmm[i] = (np.ones(xc.shape).T * det_xyz[:,-1]).T
@@ -171,33 +162,14 @@ class EventCollection:
             xmm[i, ~m], ymm[i, ~m], zmm[i, ~m] = -999., -999., -999.
             ev.xyz = np.stack((xmm[i], ymm[i], zmm[i]),  axis=-1)
 
-        # det_z = det_xyz[:,-1].reshape(tuple(dim_array))
-        # det_pitch = det_pitch.reshape(dim_array)
-        # det_side = det_side.reshape(dim_array)
-        # zmm = zmm*det_z
-        #converting strip in mm
-        # xmm, ymm = xc * det_pitch , yc * det_pitch
-        # self._xyz = np.stack((xmm[m], ymm[m], zmm[m]), axis=-1)
         self._xyz = np.stack((xmm, ymm, zmm), axis=-1)
-        # print(self._xyz)
-        # print(self.mask_xyz.shape)
-        # self._xyz_nc = self._xyz.copy()
-        # self.mask_xyz = np.all(self._xyz[:,:,:,0:-1] != 0, axis=-1) 
-        # taking panel center as origin (first strip in (x,y) in left bottom corner) and going to detector ensemble coordinate system
-        # self._xyz[:,:,:,0] = self._xyz[:,:,:,0] - det_side/2 + det_xyz[:,0].reshape(dim_array)
-        # self._xyz[:,:,:,1] = self._xyz[:,:,:,1] - det_side/2 + det_xyz[:,1].reshape(dim_array)
-        
-
-
-        pass
-
+   
 
     def get_tracks(self, XYZ:np.ndarray=None, mask:np.ndarray=None) -> None:
 
         if mask is None: mask = np.full((XYZ.shape[0], XYZ.shape[1]), True)
 
         for i, (id, ev) in enumerate(self.events.items()): 
-            # if i > 10 : continue
             xyz, m = XYZ[i], mask[i]           
             ev.track = Track()
             ev.track.id = id

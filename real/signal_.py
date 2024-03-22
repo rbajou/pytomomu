@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
 from typing import List, Union
@@ -15,7 +15,7 @@ from .amplitude import Amplitude
 from cluster import StripCollection
 from detector import INB72
 from event import Event, EventCollection
-from .rootfile import RootFile
+from rootfile import RootFile
 
 import sys
 # Increase the recursion limit

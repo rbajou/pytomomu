@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
 import numpy as np 
@@ -29,7 +29,7 @@ class EventRate:
 
     def __init__(self, time:np.ndarray, t0:int=0, dt_gap:int=3600):
         self.run_duration = 0    
-        self.time = np.sort(time * 8 / 1e9) #s
+        self.time = np.sort(time) #s
         dtime = np.diff(self.time) 
         self.t0 = t0 #unix timestamp start 
         self.run_duration = np.sum(dtime[dtime < dt_gap])  # in second
@@ -50,20 +50,20 @@ class EventRate:
         # ntimebins = int(abs(t_end - t_start)/width) #hour
         # (self.entries, self.tbin, self.patch) = ax.hist(arr_time, bins=ntimebins, edgecolor='None', label=f"{label}\nnevts={len(arr_time):1.3e}", **kwargs)
 
-        if self.t0 != 0:
-            center += self.t0 
-            center -= self.run_duration
-            t_start = int(np.min(center))
-            t_end = int(np.max(center))
-            print(t_start, t_end)
-            date_start = datetime.fromtimestamp(t_start+t_off)
-            self.start = date_start
-            date_start = date(date_start.year, date_start.month, date_start.day )#
-            date_end = datetime.fromtimestamp(t_end+t_off)
-            self.end = date_end
-            date_end = date(date_end.year, date_end.month, date_end.day )#str(datetime.fromtimestamp(data_tomo[:, 1][-1]))
-            self.date_start, self.date_end=  date_start, date_end
-            label +=  f"\nstart:{self.start.strftime('%y/%m/%d %H:%M')}\nend:{self.end.strftime('%y/%m/%d %H:%M')}\nduration={self.run_duration/3600:.1f}h\nnevts={len(arr_time):1.3e}"
+        # if self.t0 != 0:
+        center += self.t0 
+        center -= self.run_duration
+        t_start = int(np.min(center))
+        t_end = int(np.max(center))
+        date_start = datetime.fromtimestamp(t_start+t_off)
+        self.start = date_start
+        date_start = date(date_start.year, date_start.month, date_start.day )#
+        date_end = datetime.fromtimestamp(t_end+t_off)
+        self.end = date_end
+        date_end = date(date_end.year, date_end.month, date_end.day )#str(datetime.fromtimestamp(data_tomo[:, 1][-1]))
+        self.date_start, self.date_end=  date_start, date_end
+        label +=  f"\nstart:{self.start.strftime('%y/%m/%d %H:%M')}\nend:{self.end.strftime('%y/%m/%d %H:%M')}\nduration={self.run_duration/3600:.1f}h\nnevts={len(arr_time):1.3e}"
+    
         ax.bar(center, entries, width, edgecolor='None', label=label, **kwargs)
         if self.t0 != 0:
             datetime_ticks = [datetime.fromtimestamp(int(ts)).strftime('%d/%m %H:%M') for ts in ax.get_xticks()]

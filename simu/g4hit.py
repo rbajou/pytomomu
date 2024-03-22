@@ -1,13 +1,5 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
-
-from abc import abstractmethod
-
-class Hit:
-    
-    @abstractmethod
-    def hit(self):
-        pass
 
 class HitCollection: 
 
@@ -22,7 +14,7 @@ class HitCollection:
 
     @property
     def pdgcode(self):
-        """Pdg code (13 for muons, 11 for electrons)"""
+        """Pdg code (e.g '13' for muons, '11' for electrons)"""
         return self._pdgcode
     
     @pdgcode.setter

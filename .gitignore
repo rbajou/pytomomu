@@ -2,7 +2,11 @@
 .vscode
 build/
 dist/
+lib/
 out/
 pytomomu.egg-info/
+old/
 test/
 slurm/
+__pycache__/
+*/__pycache__

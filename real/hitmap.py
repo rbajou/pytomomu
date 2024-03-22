@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
 from typing import Union
@@ -44,7 +44,6 @@ class HitMap:
         ndet = len(ens.detectors)
         npan = ndet
 
-        print(f"npan = {npan}")
         mosaic = np.array([ f'{key_var}_xy_{ipan}' for ipan in range(npan)])
         mosaic = mosaic.reshape((2,npan//2))
         nrow, ncol = mosaic.shape[0], mosaic.shape[1]
